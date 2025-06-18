@@ -14,17 +14,16 @@ interface Props {
 }
 
 const Sidebar = ( {fullName , email}: Props ) => {
-
     const pathname = usePathname();
 
   return (
     <aside className="sidebar">
       <Link href="/">
         <Image
-          src="/assets/icons/logo-full-brand.svg"
+          src="/assets/icons/logo-full-brand.png"
           alt="logo"
-          width={160}
-          height={50}
+          width={250}
+          height={40}
           className="hidden h-auto lg:block"
         />
 
