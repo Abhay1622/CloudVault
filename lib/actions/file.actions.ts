@@ -1,15 +1,13 @@
 "use server";
 
-// import { createAdminClient, createSessionClient } from "@/lib/appwrite";
-import { createAdminClient , createSessionClient } from "../Appwrite";
+import { createAdminClient, createSessionClient } from "../Appwrite";
 import { InputFile } from "node-appwrite/file";
-// import { appwriteConfig } from "@/lib/appwrite/config";
 import { appwriteConfig } from "../Appwrite/config";
 import { ID, Models, Query } from "node-appwrite";
 import { constructFileUrl, getFileType, parseStringify } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/actions/user.actions";
-// import { UploadFileProps } from '@/types'
+import { redirect } from "next/navigation";
 
 const handleError = (error: unknown, message: string) => {
   console.log(error, message);
@@ -99,13 +97,16 @@ export const getFiles = async ({
   sort = "$createdAt-desc",
   limit,
 }: GetFilesProps) => {
-  const { databases } = await createAdminClient();
-
   try {
+    // Try to get current user first
     const currentUser = await getCurrentUser();
 
-    if (!currentUser) throw new Error("User not found");
+    if (!currentUser) {
+      // Redirect to sign-in if no user found
+      redirect("/sign-in");
+    }
 
+    const { databases } = await createSessionClient();
     const queries = createQueries(currentUser, types, searchText, sort, limit);
 
     const files = await databases.listDocuments(
@@ -117,6 +118,10 @@ export const getFiles = async ({
     console.log({ files });
     return parseStringify(files);
   } catch (error) {
+    // Check if it's an authentication error
+    if (error instanceof Error && error.message.includes("session")) {
+      redirect("/sign-in");
+    }
     handleError(error, "Failed to get files");
   }
 };
@@ -167,7 +172,7 @@ export const updateFileUsers = async ({
     revalidatePath(path);
     return parseStringify(updatedFile);
   } catch (error) {
-    handleError(error, "Failed to rename file");
+    handleError(error, "Failed to update file users");
   }
 };
 
@@ -192,16 +197,20 @@ export const deleteFile = async ({
     revalidatePath(path);
     return parseStringify({ status: "success" });
   } catch (error) {
-    handleError(error, "Failed to rename file");
+    handleError(error, "Failed to delete file");
   }
 };
 
 // ============================== TOTAL FILE SPACE USED
 export async function getTotalSpaceUsed() {
   try {
-    const { databases } = await createSessionClient();
+    // Check authentication first
     const currentUser = await getCurrentUser();
-    if (!currentUser) throw new Error("User is not authenticated.");
+    if (!currentUser) {
+      redirect("/sign-in");
+    }
+
+    const { databases } = await createSessionClient();
 
     const files = await databases.listDocuments(
       appwriteConfig.databaseId,
@@ -234,6 +243,10 @@ export async function getTotalSpaceUsed() {
 
     return parseStringify(totalSpace);
   } catch (error) {
-    handleError(error, "Error calculating total space used:, ");
+    // Check if it's an authentication error
+    if (error instanceof Error && error.message.includes("session")) {
+      redirect("/sign-in");
+    }
+    handleError(error, "Error calculating total space used");
   }
 }
